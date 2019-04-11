@@ -1,0 +1,24 @@
+---
+- hosts: testServers
+  vars:
+    ansible_ssh_private_key_file: "~/.ssh/naveen.pem"
+    nameOfTheNetwork: 
+  tasks:
+  ## gets information of containers running on the host 
+  - name: getting details about containers running on host
+    docker_host_info:
+      containers: yes
+    register: hostinfo
+  
+  ## creates the network with given name
+   - name: create a network in hosts
+     docker_network:
+       name: "{{ nameofthenetwork }}"      
+  ## adds containers to given network and removes from any other networks 
+  - name: add a network to a container 
+    docker_container:
+      name: "{{ item.Id }}"
+      networks:
+        - name: sixthNetwork
+      purge_networks: yes 
+    with_items: "{{ hostinfo.containers }}"

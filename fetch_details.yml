@@ -1,0 +1,66 @@
+---
+ - hosts: DevServers
+   #become: yes
+   #become_method: sudo
+   #become_user: ubuntu
+   vars:
+     # make sure you gave the correct path to private key 
+     ansible_ssh_private_key_file: "~/.ssh/naveen.pem"
+     filePath: "~/docker_fetch/output.txt"
+   tasks:
+     # install pip in target node 
+    - name: install pip in node   
+      apt:
+        name: python-pip
+        update_cache: yes
+      become: yes
+  
+     #installs docker-py in target node
+    - name: install docker-py
+      pip:
+        name: docker-py
+
+     #gets the information  from host
+    - name: Get details of docker host
+      docker_host_info:
+        containers: yes
+      register: dockerHostInfo
+    
+    ## deletes file if already present in localhost##
+    #- name: delete a file it already exits
+    #  file:
+    #    path: ~/docker_fetch/output.txt
+    #    state: absent
+    #  delegate_to: localhost
+    ## creates a new file to store data##
+    #- name: create a file 
+    #  file:
+    #    path: ~/docker_fetch/output.txt
+    #    state: touch
+    #  delegate_to: localhost
+
+    # gets the container related information from each node   
+    - name: getting details of each container
+      docker_container_info:
+        name: "{{ item.Id }}"
+      register: containerInfo
+      with_items: "{{ dockerHostInfo.containers }}"
+    
+    #- name: using lineinfile to add details to file
+    #  lineinfile:
+    #    path: ~/docker_fetch/output.txt
+    #    line: "{{ item.container.NetworkSettings.IPAddress }}    {{ item.container.Config.Hostname }}"
+    #    insertafter: EOF
+    #  with_items: "{{ containerInfo.results }}"
+    #  delegate_to: localhost
+    
+    # adding ipaddress and hostname.
+    - name: using blockinfile to add details to file
+      blockinfile:
+        path: "{{ filePath }}"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK {{ item.container.Config.Hostname }}"
+        block: |
+          {{ item.container.NetworkSettings.IPAddress }}    {{ item.container.Config.Hostname }}
+        insertafter: EOF
+      with_items: "{{ containerInfo.results }}"
+      delegate_to: localhost
